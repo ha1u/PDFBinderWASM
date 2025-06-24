@@ -89,7 +89,11 @@ const generateThumbnail = async (file: UploadedFile) => {
   const context = canvas.getContext('2d')!;
 
   try {
-    const pdf = await pdfjsLib.getDocument({ data: file.arrayBuffer }).promise;
+    // --- ★★★ 修正点1: サムネイル生成用にArrayBufferをコピー ★★★
+    const bufferCopy = file.arrayBuffer.slice(0);
+    const pdf = await pdfjsLib.getDocument({ data: bufferCopy }).promise;
+    // --- 修正ここまで ---
+
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 1 });
     const scale = canvas.width / viewport.width;
@@ -141,11 +145,7 @@ fileListEl.addEventListener('click', (e) => {
   }
 });
 
-// ★★★ 修正点1: 未使用のdraggedId変数を削除 ★★★
-// let draggedId: string | null = null; // この行を削除
-
 fileListEl.addEventListener('dragstart', (e) => {
-    // draggedId = (e.target as HTMLElement).dataset.id!; // この行を削除
     setTimeout(() => (e.target as HTMLElement).classList.add('dragging'), 0);
 });
 fileListEl.addEventListener('dragend', (e) => {
@@ -171,12 +171,8 @@ fileListEl.addEventListener('drop', () => {
     renderFileList();
 });
 
-
-// ★★★ 修正点2: getDragAfterElement関数を修正 ★★★
 function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
     const draggableElements = [...container.querySelectorAll<HTMLElement>('.file-list-item:not(.dragging)')];
-
-    // reduceの初期値にelementプロパティを追加して、型を安全にします
     const closest = draggableElements.reduce<{ offset: number; element: HTMLElement | null }>(
         (acc, child) => {
             const box = child.getBoundingClientRect();
@@ -187,12 +183,10 @@ function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | n
                 return acc;
             }
         },
-        { offset: Number.NEGATIVE_INFINITY, element: null } // 初期値
+        { offset: Number.NEGATIVE_INFINITY, element: null }
     );
-
     return closest.element;
 }
-
 
 clearButton.addEventListener('click', () => { uploadedFiles = []; fileInput.value = ''; renderFileList(); clearStatus(); });
 
@@ -204,7 +198,10 @@ mergeButton.addEventListener('click', async () => {
   try {
     const mergedPdf = await PDFDocument.create();
     for (const file of uploadedFiles) {
-      const pdf = await PDFDocument.load(file.arrayBuffer);
+      // --- ★★★ 修正点2: PDF結合用にArrayBufferをコピー ★★★
+      const bufferCopy = file.arrayBuffer.slice(0);
+      const pdf = await PDFDocument.load(bufferCopy);
+      // --- 修正ここまで ---
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
       copiedPages.forEach((page) => mergedPdf.addPage(page));
     }

@@ -1,0 +1,217 @@
+import './style.css';
+import { PDFDocument } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+// pdf.jsのワーカーを設定します。Vite環境ではこのように動的importを使うのが一般的です。
+// @ts-ignore
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.entry.js', import.meta.url).toString();
+
+
+// --- 型定義 ---
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  arrayBuffer: ArrayBuffer;
+}
+
+// --- DOM要素の取得 ---
+const uploadContainer = document.getElementById('upload-container')!;
+const fileInput = document.getElementById('file-input')! as HTMLInputElement;
+const fileListEl = document.getElementById('file-list')!;
+const mergeButton = document.getElementById('merge-button')! as HTMLButtonElement;
+const clearButton = document.getElementById('clear-button')! as HTMLButtonElement;
+const statusContainer = document.getElementById('status-container')!;
+
+// --- 状態管理 ---
+let uploadedFiles: UploadedFile[] = [];
+
+// --- ファイル処理 ---
+const handleFiles = (files: FileList) => {
+  for (const file of files) {
+    if (file.type !== 'application/pdf' || uploadedFiles.some(f => f.name === file.name)) {
+      continue;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const arrayBuffer = e.target?.result as ArrayBuffer;
+      if (arrayBuffer) {
+        uploadedFiles.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          arrayBuffer: arrayBuffer,
+        });
+        renderFileList();
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+};
+
+// --- UI更新 ---
+const renderFileList = () => {
+  fileListEl.innerHTML = '';
+  uploadedFiles.forEach((file, index) => {
+    const li = document.createElement('li');
+    li.className = 'file-list-item';
+    li.dataset.id = file.id;
+    li.draggable = true;
+
+    const sizeInKB = (file.size / 1024).toFixed(1);
+
+    li.innerHTML = `
+      <canvas id="thumb-${file.id}" class="thumbnail-canvas"></canvas>
+      <div class="file-info">
+        <span class="file-name">${file.name}</span>
+        <span class="file-details">${sizeInKB} KB</span>
+      </div>
+      <div class="order-controls">
+        <button class="arrow-btn up-btn" data-index="${index}" title="上へ">↑</button>
+        <button class="arrow-btn down-btn" data-index="${index}" title="下へ">↓</button>
+      </div>
+      <button class="remove-btn" data-index="${index}" title="削除">&times;</button>
+    `;
+    fileListEl.appendChild(li);
+
+    generateThumbnail(file);
+
+    const upBtn = li.querySelector('.up-btn')! as HTMLButtonElement;
+    const downBtn = li.querySelector('.down-btn')! as HTMLButtonElement;
+    if (index === 0) upBtn.disabled = true;
+    if (index === uploadedFiles.length - 1) downBtn.disabled = true;
+  });
+  updateButtonsState();
+};
+
+const generateThumbnail = async (file: UploadedFile) => {
+  const canvas = document.getElementById(`thumb-${file.id}`) as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const context = canvas.getContext('2d')!;
+
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: file.arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1 });
+    const scale = canvas.width / viewport.width;
+    const scaledViewport = page.getViewport({ scale });
+    await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+  } catch (err) {
+    console.error('サムネイルの生成に失敗しました:', file.name, err);
+    context.fillStyle = '#ccc';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+const updateButtonsState = () => {
+    mergeButton.disabled = uploadedFiles.length < 2;
+    clearButton.disabled = uploadedFiles.length === 0;
+};
+const updateStatus = (message: string, type: 'processing' | 'success' | 'error') => {
+  statusContainer.className = `status-container ${type}`;
+  statusContainer.textContent = message;
+};
+const clearStatus = () => {
+  statusContainer.className = 'status-container hidden';
+  statusContainer.textContent = '';
+};
+
+// --- イベントリスナー ---
+uploadContainer.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFiles((e.target as HTMLInputElement).files!));
+uploadContainer.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.add('dragover'); });
+uploadContainer.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); });
+uploadContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); handleFiles(e.dataTransfer!.files); });
+
+fileListEl.addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  if (!target.dataset.index) return;
+  const index = parseInt(target.dataset.index, 10);
+  
+  if (target.classList.contains('remove-btn')) {
+    uploadedFiles.splice(index, 1);
+    renderFileList();
+  } else if (target.classList.contains('arrow-btn')) {
+    const direction = target.classList.contains('up-btn') ? -1 : 1;
+    const newIndex = index + direction;
+    if (newIndex >= 0 && newIndex < uploadedFiles.length) {
+      [uploadedFiles[index], uploadedFiles[newIndex]] = [uploadedFiles[newIndex], uploadedFiles[index]];
+      renderFileList();
+    }
+  }
+});
+
+let draggedId: string | null = null;
+fileListEl.addEventListener('dragstart', (e) => {
+    draggedId = (e.target as HTMLElement).dataset.id!;
+    setTimeout(() => (e.target as HTMLElement).classList.add('dragging'), 0);
+});
+fileListEl.addEventListener('dragend', (e) => (e.target as HTMLElement).classList.remove('dragging'));
+fileListEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const afterElement = getDragAfterElement(fileListEl, e.clientY);
+    const currentDragged = document.querySelector('.dragging');
+    if (!currentDragged) return;
+    if (afterElement == null) {
+        fileListEl.appendChild(currentDragged);
+    } else {
+        fileListEl.insertBefore(currentDragged, afterElement);
+    }
+});
+fileListEl.addEventListener('drop', () => {
+    const newOrder = Array.from(fileListEl.querySelectorAll('.file-list-item')).map(item => uploadedFiles.find(f => f.id === (item as HTMLElement).dataset.id)!);
+    uploadedFiles = newOrder;
+    renderFileList();
+});
+
+function getDragAfterElement(container: HTMLElement, y: number) {
+    const draggableElements = [...container.querySelectorAll<HTMLElement>('.file-list-item:not(.dragging)')];
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+clearButton.addEventListener('click', () => { uploadedFiles = []; fileInput.value = ''; renderFileList(); clearStatus(); });
+
+mergeButton.addEventListener('click', async () => {
+  if (uploadedFiles.length < 2) return;
+  updateStatus("結合処理中...", "processing");
+  mergeButton.disabled = true;
+  clearButton.disabled = true;
+  try {
+    const mergedPdf = await PDFDocument.create();
+    for (const file of uploadedFiles) {
+      const pdf = await PDFDocument.load(file.arrayBuffer);
+      const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+      copiedPages.forEach((page) => mergedPdf.addPage(page));
+    }
+    const mergedPdfBytes = await mergedPdf.save();
+    downloadPDF(mergedPdfBytes, `${crypto.randomUUID()}.pdf`);
+    updateStatus("PDFの結合が完了しました！", "success");
+  } catch (error) {
+    console.error("PDFの結合に失敗しました:", error);
+    updateStatus(`エラー: 結合に失敗しました。PDFファイルが破損しているか、パスワードで保護されている可能性があります。`, "error");
+  } finally {
+    updateButtonsState();
+  }
+});
+
+const downloadPDF = (bytes: Uint8Array, filename: string) => {
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
+
+// 初期状態
+updateButtonsState();

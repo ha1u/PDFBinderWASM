@@ -1,0 +1,203 @@
+:root {
+    --primary-color: #007bff;
+    --primary-hover-color: #0056b3;
+    --secondary-color: #6c757d;
+    --secondary-hover-color: #5a6268;
+    --bg-color: #f8f9fa;
+    --content-bg-color: #ffffff;
+    --text-color: #343a40;
+    --border-color: #dee2e6;
+    --drop-zone-bg-color: #e9ecef;
+    --drop-zone-border-color: #ced4da;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2em;
+}
+
+header p {
+    margin: 5px 0 0;
+    opacity: 0.9;
+}
+
+main {
+    max-width: 800px;
+    margin: 30px auto;
+    padding: 20px;
+    background-color: var(--content-bg-color);
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.05);
+}
+
+.upload-container {
+    border: 3px dashed var(--drop-zone-border-color);
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    background-color: var(--drop-zone-bg-color);
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.upload-container.dragover {
+    background-color: #d1e7dd; /* Light green */
+    border-color: var(--success-color);
+}
+
+.upload-label p {
+    margin: 0;
+    font-size: 1.2em;
+}
+.upload-label span {
+    font-size: 0.9em;
+    color: var(--secondary-color);
+}
+
+.file-list-container {
+    margin-top: 30px;
+}
+
+.file-list-container h2 {
+    font-size: 1.3em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+#file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.file-list-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background-color: #fff;
+    cursor: grab;
+    transition: background-color 0.2s;
+}
+.file-list-item.dragging {
+    opacity: 0.5;
+    background-color: #f0f0f0;
+}
+
+
+.file-list-item .file-name {
+    flex-grow: 1;
+    font-weight: 500;
+}
+
+.file-list-item .file-pages,
+.file-list-item .file-size {
+    margin-left: 15px;
+    font-size: 0.9em;
+    color: var(--secondary-color);
+    min-width: 80px;
+    text-align: right;
+}
+
+.file-list-item .remove-btn {
+    margin-left: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2em;
+    color: var(--error-color);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.file-list-item .remove-btn:hover {
+    opacity: 1;
+}
+
+
+.actions-container {
+    margin-top: 30px;
+    display: flex;
+    gap: 15px;
+}
+
+.actions-container button {
+    font-size: 1.1em;
+    font-weight: bold;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.actions-container button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+#merge-button {
+    background-color: var(--primary-color);
+    color: white;
+}
+#merge-button:not(:disabled):hover {
+    background-color: var(--primary-hover-color);
+}
+
+#clear-button {
+    background-color: var(--secondary-color);
+    color: white;
+}
+#clear-button:not(:disabled):hover {
+    background-color: var(--secondary-hover-color);
+}
+
+.status-container {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 500;
+}
+.status-container.hidden {
+    display: none;
+}
+.status-container.processing {
+    background-color: var(--drop-zone-bg-color);
+    color: var(--text-color);
+}
+.status-container.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.status-container.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+footer {
+    text-align: center;
+    margin-top: 40px;
+    padding: 20px;
+    font-size: 0.9em;
+    color: var(--secondary-color);
+}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM PDF Binder</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+</head>
+<body>
+    <header>
+        <h1>WASM PDF Binder</h1>
+        <p>ブラウザだけでPDFを安全に結合</p>
+    </header>
+
+    <main>
+        <div id="upload-container" class="upload-container">
+            <input type="file" id="file-input" multiple accept=".pdf" style="display: none;">
+            <label for="file-input" class="upload-label">
+                <p><strong>PDFファイルを選択</strong>するか、ここにドラッグ＆ドロップしてください</p>
+                <span>(複数選択可)</span>
+            </label>
+        </div>
+
+        <div id="file-list-container" class="file-list-container">
+            <h2>結合するファイル（ドラッグ＆ドロップで順序変更）</h2>
+            <ul id="file-list">
+                </ul>
+        </div>
+
+        <div class="actions-container">
+            <button id="merge-button" disabled>結合する</button>
+            <button id="clear-button" disabled>すべてクリア</button>
+        </div>
+
+        <div id="status-container" class="status-container">
+            </div>
+    </main>
+
+    <footer>
+        <p>すべての処理はあなたのブラウザ内で完結します。ファイルが外部に送信されることはありません。</p>
+    </footer>
+
+    <script src="wasm_exec.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

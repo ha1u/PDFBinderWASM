@@ -1,0 +1,11 @@
+main.wasm
+*.exe
+*.test
+*.dll
+*.so
+*.dylib
+*.out
+go.work
+go.work.sum
+.env
+Makefile

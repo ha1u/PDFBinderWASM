@@ -1,13 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // WASMの初期化
     const go = new Go();
-    WebAssembly.instantiateStreaming(fetch('main.wasm'), go.importObject).then((result) => {
-        go.run(result.instance);
-        console.log("WASM PDF Binder Initialized (JS)");
-    }).catch(err => {
-        console.error("WASM initialization failed:", err);
-        updateStatus("WASMの読み込みに失敗しました。ページを再読み込みしてください。", "error");
-    });
 
     // DOM要素の取得
     const uploadContainer = document.getElementById('upload-container');
@@ -16,6 +9,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const mergeButton = document.getElementById('merge-button');
     const clearButton = document.getElementById('clear-button');
     const statusContainer = document.getElementById('status-container');
+    
+    // --- ★★★ 修正点1: UIを初期状態で無効化 ★★★ ---
+    mergeButton.disabled = true;
+    clearButton.disabled = true;
+    fileInput.disabled = true;
+    uploadContainer.style.cursor = 'wait'; // カーソルを変更して待機中であることを示す
+    const uploadLabel = uploadContainer.querySelector('.upload-label p');
+    const originalLabelText = uploadLabel.innerHTML;
+    uploadLabel.innerHTML = "<strong>アプリケーションを読み込み中...</strong>";
+
+
+    WebAssembly.instantiateStreaming(fetch('main.wasm'), go.importObject).then((result) => {
+        go.run(result.instance);
+        console.log("WASM PDF Binder Initialized (JS)");
+
+        // --- ★★★ 修正点2: 初期化成功後にUIを有効化 ★★★ ---
+        fileInput.disabled = false;
+        uploadContainer.style.cursor = 'pointer';
+        uploadLabel.innerHTML = originalLabelText; // ラベルテキストを元に戻す
+        updateButtonsState(); // ファイル数に応じてボタンの状態を更新
+
+    }).catch(err => {
+        console.error("WASM initialization failed:", err);
+        // エラー時もUIの状態は無効のままか、エラーメッセージを表示
+        uploadContainer.style.cursor = 'default';
+        uploadLabel.innerHTML = "<strong>読み込みに失敗しました</strong>";
+        updateStatus("アプリケーションの読み込みに失敗しました。ページを再読み込みしてください。", "error");
+    });
+
 
     // ファイルを管理する配列
     let uploadedFiles = [];

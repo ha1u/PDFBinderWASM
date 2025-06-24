@@ -1,9 +1,11 @@
 import './style.css';
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+// --- ★★★ 修正点1: インポートパスの変更 ★★★ ---
+import * as pdfjsLib from 'pdfjs-dist';
+
+// --- ★★★ 修正点2: ワーカーファイルのパスを変更 ★★★ ---
 // pdf.jsのワーカーを設定します。Vite環境ではこのように動的importを使うのが一般的です。
-// @ts-ignore
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.entry.js', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 
 // --- 型定義 ---
@@ -90,6 +92,7 @@ const generateThumbnail = async (file: UploadedFile) => {
   const context = canvas.getContext('2d')!;
 
   try {
+    // getDocumentの引数を { data: ... } オブジェクトで渡すのがより安全
     const pdf = await pdfjsLib.getDocument({ data: file.arrayBuffer }).promise;
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 1 });
@@ -146,7 +149,12 @@ fileListEl.addEventListener('dragstart', (e) => {
     draggedId = (e.target as HTMLElement).dataset.id!;
     setTimeout(() => (e.target as HTMLElement).classList.add('dragging'), 0);
 });
-fileListEl.addEventListener('dragend', (e) => (e.target as HTMLElement).classList.remove('dragging'));
+fileListEl.addEventListener('dragend', (e) => {
+    const target = e.target as HTMLElement;
+    if(target.classList.contains('dragging')) {
+      target.classList.remove('dragging');
+    }
+});
 fileListEl.addEventListener('dragover', (e) => {
     e.preventDefault();
     const afterElement = getDragAfterElement(fileListEl, e.clientY);

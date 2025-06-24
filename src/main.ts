@@ -1,9 +1,6 @@
 import './style.css';
 import { PDFDocument } from 'pdf-lib';
-// --- ★★★ 修正点1: インポートパスの変更 ★★★ ---
 import * as pdfjsLib from 'pdfjs-dist';
-
-// --- ★★★ 修正点2: ワーカーファイルのパスを変更 ★★★ ---
 // pdf.jsのワーカーを設定します。Vite環境ではこのように動的importを使うのが一般的です。
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
@@ -92,7 +89,6 @@ const generateThumbnail = async (file: UploadedFile) => {
   const context = canvas.getContext('2d')!;
 
   try {
-    // getDocumentの引数を { data: ... } オブジェクトで渡すのがより安全
     const pdf = await pdfjsLib.getDocument({ data: file.arrayBuffer }).promise;
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 1 });
@@ -128,8 +124,9 @@ uploadContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopProp
 
 fileListEl.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
-  if (!target.dataset.index) return;
-  const index = parseInt(target.dataset.index, 10);
+  const indexAttr = target.dataset.index;
+  if (!indexAttr) return;
+  const index = parseInt(indexAttr, 10);
   
   if (target.classList.contains('remove-btn')) {
     uploadedFiles.splice(index, 1);
@@ -144,9 +141,11 @@ fileListEl.addEventListener('click', (e) => {
   }
 });
 
-let draggedId: string | null = null;
+// ★★★ 修正点1: 未使用のdraggedId変数を削除 ★★★
+// let draggedId: string | null = null; // この行を削除
+
 fileListEl.addEventListener('dragstart', (e) => {
-    draggedId = (e.target as HTMLElement).dataset.id!;
+    // draggedId = (e.target as HTMLElement).dataset.id!; // この行を削除
     setTimeout(() => (e.target as HTMLElement).classList.add('dragging'), 0);
 });
 fileListEl.addEventListener('dragend', (e) => {
@@ -172,18 +171,28 @@ fileListEl.addEventListener('drop', () => {
     renderFileList();
 });
 
-function getDragAfterElement(container: HTMLElement, y: number) {
+
+// ★★★ 修正点2: getDragAfterElement関数を修正 ★★★
+function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
     const draggableElements = [...container.querySelectorAll<HTMLElement>('.file-list-item:not(.dragging)')];
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+
+    // reduceの初期値にelementプロパティを追加して、型を安全にします
+    const closest = draggableElements.reduce<{ offset: number; element: HTMLElement | null }>(
+        (acc, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > acc.offset) {
+                return { offset, element: child };
+            } else {
+                return acc;
+            }
+        },
+        { offset: Number.NEGATIVE_INFINITY, element: null } // 初期値
+    );
+
+    return closest.element;
 }
+
 
 clearButton.addEventListener('click', () => { uploadedFiles = []; fileInput.value = ''; renderFileList(); clearStatus(); });
 

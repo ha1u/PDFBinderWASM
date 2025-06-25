@@ -12,6 +12,7 @@ interface UploadedFile {
   name: string;
   size: number;
   arrayBuffer: ArrayBuffer;
+  rotation: 0 | 90 | 180 | 270; // ★★★ 回転角度を保持するプロパティを追加 ★★★
 }
 
 // --- DOM要素の取得 ---
@@ -46,6 +47,7 @@ const handleFiles = (files: FileList) => {
       if (arrayBuffer) {
         uploadedFiles.push({
           id: crypto.randomUUID(), name: file.name, size: file.size, arrayBuffer,
+          rotation: 0, // ★★★ rotationを0で初期化 ★★★
         });
         renderFileList();
       }
@@ -64,17 +66,25 @@ const renderFileList = () => {
     li.dataset.index = String(index);
     li.draggable = true;
     const sizeInKB = (file.size / 1024).toFixed(1);
+    
+    // ★★★ HTML構造に回転UIを追加 ★★★
     li.innerHTML = `
       <canvas id="thumb-${file.id}" class="thumbnail-canvas" data-index="${index}"></canvas>
       <div class="file-info">
         <span class="file-name">${file.name}</span>
         <span class="file-details">${sizeInKB} KB</span>
       </div>
-      <div class="order-controls">
-        <button class="arrow-btn up-btn" data-index="${index}" title="上へ">↑</button>
-        <button class="arrow-btn down-btn" data-index="${index}" title="下へ">↓</button>
+      <div class="item-actions">
+        <div class="rotation-control">
+          <button class="rotate-btn" data-index="${index}" title="90度回転">↺</button>
+          <span class="rotation-display">${file.rotation}°</span>
+        </div>
+        <div class="order-controls">
+          <button class="arrow-btn up-btn" data-index="${index}" title="上へ">↑</button>
+          <button class="arrow-btn down-btn" data-index="${index}" title="下へ">↓</button>
+        </div>
+        <button class="remove-btn" data-index="${index}" title="削除">&times;</button>
       </div>
-      <button class="remove-btn" data-index="${index}" title="削除">&times;</button>
     `;
     fileListEl.appendChild(li);
     generateThumbnail(file);
@@ -162,7 +172,7 @@ uploadContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopProp
 
 fileListEl.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
-  const indexAttr = target.dataset.index;
+  const indexAttr = target.closest('.file-list-item')?.dataset.index; // 親要素からindexを取得
   if (!indexAttr) return;
   const index = parseInt(indexAttr, 10);
   
@@ -178,6 +188,10 @@ fileListEl.addEventListener('click', (e) => {
     }
   } else if (target.classList.contains('thumbnail-canvas')) {
       showLightbox(index);
+  } else if (target.classList.contains('rotate-btn')) { // ★★★ 回転ボタンの処理を追加 ★★★
+    const file = uploadedFiles[index];
+    file.rotation = ((file.rotation + 90) % 360) as 0 | 90 | 180 | 270;
+    renderFileList(); // UIを更新
   }
 });
 
@@ -224,7 +238,13 @@ function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | n
     return closest.element;
 }
 
-clearButton.addEventListener('click', () => { uploadedFiles = []; fileInput.value = ''; renderFileList(); clearStatus(); });
+clearButton.addEventListener('click', () => { 
+    uploadedFiles = [];
+    fileInput.value = '';
+    filenameInput.value = ''; // ファイル名入力欄もクリア
+    renderFileList();
+    clearStatus();
+});
 
 mergeButton.addEventListener('click', async () => {
   if (uploadedFiles.length < 2) return;
@@ -237,7 +257,13 @@ mergeButton.addEventListener('click', async () => {
       const bufferCopy = file.arrayBuffer.slice(0);
       const pdf = await PDFDocument.load(bufferCopy);
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-      copiedPages.forEach((page) => mergedPdf.addPage(page));
+
+      copiedPages.forEach(page => {
+        // 保存された回転角度を追加で適用
+        const currentRotation = page.getRotation().angle;
+        page.setRotation(degrees(currentRotation + file.rotation));
+        mergedPdf.addPage(page);
+      });
     }
     const mergedPdfBytes = await mergedPdf.save();
     

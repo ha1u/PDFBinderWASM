@@ -1,6 +1,7 @@
 import './style.css';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+
 // pdf.jsのワーカーを設定します。Vite環境ではこのように動的importを使うのが一般的です。
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
@@ -17,6 +18,7 @@ interface UploadedFile {
 const fileInput = document.getElementById('file-input')! as HTMLInputElement;
 const uploadContainer = document.getElementById('upload-container')!;
 const fileListEl = document.getElementById('file-list')!;
+const filenameInput = document.getElementById('filename-input')! as HTMLInputElement;
 const mergeButton = document.getElementById('merge-button')! as HTMLButtonElement;
 const clearButton = document.getElementById('clear-button')! as HTMLButtonElement;
 const statusContainer = document.getElementById('status-container')!;
@@ -28,11 +30,9 @@ const lightboxClose = document.querySelector('.lightbox-close')! as HTMLElement;
 const lightboxPrev = document.querySelector('.lightbox-nav.prev')! as HTMLElement;
 const lightboxNext = document.querySelector('.lightbox-nav.next')! as HTMLElement;
 
-
 // --- 状態管理 ---
 let uploadedFiles: UploadedFile[] = [];
 let currentLightboxIndex = -1;
-
 
 // --- ファイル処理 ---
 const handleFiles = (files: FileList) => {
@@ -90,7 +90,6 @@ const generateThumbnail = async (file: UploadedFile) => {
   const canvas = document.getElementById(`thumb-${file.id}`) as HTMLCanvasElement | null;
   if (!canvas) return;
   const context = canvas.getContext('2d')!;
-
   try {
     const bufferCopy = file.arrayBuffer.slice(0);
     const pdf = await pdfjsLib.getDocument({ data: bufferCopy }).promise;
@@ -156,7 +155,6 @@ const showPrevImage = () => showLightbox((currentLightboxIndex - 1 + uploadedFil
 
 
 // --- イベントリスナー ---
-uploadContainer.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', (e) => handleFiles((e.target as HTMLInputElement).files!));
 uploadContainer.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.add('dragover'); });
 uploadContainer.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); });
@@ -243,9 +241,18 @@ mergeButton.addEventListener('click', async () => {
     }
     const mergedPdfBytes = await mergedPdf.save();
     
-    const randomString = Math.random().toString(36).substring(2, 12);
-    downloadPDF(mergedPdfBytes, `merged_${randomString}.pdf`);
+    let finalFilename: string;
+    const userInputFilename = filenameInput.value.trim();
 
+    if (userInputFilename) {
+        const sanitizedFilename = userInputFilename.replace(/[<>:"/\\|?*]/g, '_');
+        finalFilename = sanitizedFilename.endsWith('.pdf') ? sanitizedFilename : `${sanitizedFilename}.pdf`;
+    } else {
+        const randomString = Math.random().toString(36).substring(2, 12);
+        finalFilename = `merged_${randomString}.pdf`;
+    }
+    
+    downloadPDF(mergedPdfBytes, finalFilename);
     updateStatus("PDFの結合が完了しました！", "success");
   } catch (error) {
     console.error("PDFの結合に失敗しました:", error);

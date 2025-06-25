@@ -34,11 +34,6 @@ header h1 {
     font-size: 2em;
 }
 
-header p {
-    margin: 5px 0 0;
-    opacity: 0.9;
-}
-
 main {
     max-width: 800px;
     margin: 30px auto;
@@ -51,11 +46,11 @@ main {
 .upload-container {
     border: 3px dashed var(--drop-zone-border-color);
     border-radius: 8px;
-    padding: 30px; /* Reduced padding */
+    padding: 40px;
     text-align: center;
     background-color: var(--drop-zone-bg-color);
-    cursor: pointer;
     transition: background-color 0.2s, border-color 0.2s;
+    cursor: default; /* クリックできないことを示す */
 }
 
 .upload-container.dragover {
@@ -65,10 +60,9 @@ main {
 
 .upload-label p {
     margin: 0;
-    font-size: 1.1em; /* Adjusted size */
-    line-height: 1.5;
+    font-size: 1.2em;
+    pointer-events: none; /* ラベル内のテキストがイベントを奪わないように */
 }
-
 
 .file-list-container {
     margin-top: 30px;
@@ -109,7 +103,7 @@ main {
     border: 1px solid var(--border-color);
     margin-right: 15px;
     background-color: #f0f0f0;
-    cursor: pointer; /* クリック可能であることを示す */
+    cursor: pointer; 
     transition: transform 0.2s;
 }
 .thumbnail-canvas:hover {
@@ -122,7 +116,7 @@ main {
 
 .file-info .file-name {
     font-weight: 500;
-    display: block;
+    display: block; 
     margin-bottom: 4px;
 }
 
@@ -174,9 +168,29 @@ main {
     opacity: 1;
 }
 
+.filename-container {
+    margin-top: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.filename-container label {
+    font-weight: 500;
+    white-space: nowrap;
+}
+#filename-input {
+    flex-grow: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1em;
+}
+.filename-suffix {
+    color: var(--secondary-color);
+}
 
 .actions-container {
-    margin-top: 30px;
+    margin-top: 20px;
     display: flex;
     gap: 15px;
 }
@@ -218,13 +232,12 @@ main {
     text-align: center;
     font-weight: 500;
 }
-.status-container.hidden {
-    display: none;
-}
-/* (他のstatus-containerスタイルは変更なし) */
+.status-container.hidden { display: none; }
+.status-container.processing { background-color: var(--drop-zone-bg-color); color: var(--text-color); }
+.status-container.success { background-color: #d4edda; color: #155724; }
+.status-container.error { background-color: #f8d7da; color: #721c24; }
 
-
-/* Lightbox Modal */
+/* (Lightbox Modal のスタイルは変更なし) */
 .lightbox-modal {
     position: fixed;
     z-index: 1000;
@@ -241,7 +254,6 @@ main {
 .lightbox-modal.hidden {
     display: none;
 }
-
 .lightbox-content {
     position: relative;
     max-width: 90vw;
@@ -250,21 +262,18 @@ main {
     flex-direction: column;
     align-items: center;
 }
-
 #lightbox-canvas {
     max-width: 100%;
-    max-height: calc(90vh - 50px); /* キャプションの高さを考慮 */
+    max-height: calc(90vh - 50px);
     box-shadow: 0 0 25px rgba(0,0,0,0.5);
     background-color: white;
 }
-
 #lightbox-caption {
     color: white;
     margin-top: 15px;
     font-size: 1.1em;
     text-align: center;
 }
-
 .lightbox-close {
     position: absolute;
     top: 15px;
@@ -276,7 +285,6 @@ main {
     cursor: pointer;
     z-index: 1001;
 }
-
 .lightbox-nav {
     position: absolute;
     top: 50%;
@@ -292,18 +300,5 @@ main {
 .lightbox-nav:hover {
     background-color: rgba(0,0,0,0.3);
 }
-.lightbox-nav.prev {
-    left: 10px;
-}
-.lightbox-nav.next {
-    right: 10px;
-}
-
-
-footer {
-    text-align: center;
-    margin-top: 40px;
-    padding: 20px;
-    font-size: 0.9em;
-    color: var(--secondary-color);
-}
+.lightbox-nav.prev { left: 10px; }
+.lightbox-nav.next { right: 10px; }

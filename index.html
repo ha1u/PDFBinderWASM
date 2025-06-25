@@ -9,27 +9,26 @@
 <body>
     <header>
         <h1>PDF Binder</h1>
-        <p>ブラウザだけでPDFを安全に結合</p>
+        <p>ブラウザで完結。安全PDF結合ツール</p>
     </header>
 
     <main>
         <div id="upload-container" class="upload-container">
             <input type="file" id="file-input" multiple accept=".pdf" style="display: none;" />
             <label for="file-input" class="upload-label">
-                <p id="upload-label-text"><strong>PDFファイルを選択</strong>するか、ここにドラッグ＆ドロップしてください</p>
-                <span>(複数選択可)</span>
+                <p id="upload-label-text"><strong>PDFをここにドラッグ＆ドロップ</strong><br>またはクリックして選択</p>
             </label>
         </div>
 
         <div id="file-list-container" class="file-list-container">
-            <h2>結合するファイル（ドラッグ＆ドロップまたは矢印で順序変更）</h2>
+            <h2>ファイルリスト（ドラッグ＆ドロップ・矢印で順序変更）</h2>
             <ul id="file-list">
                 </ul>
         </div>
 
         <div class="actions-container">
-            <button id="merge-button" disabled>結合する</button>
-            <button id="clear-button" disabled>すべてクリア</button>
+            <button id="merge-button" disabled>PDFを結合</button>
+            <button id="clear-button" disabled>クリア</button>
         </div>
 
         <div id="status-container" class="status-container hidden">
@@ -37,8 +36,19 @@
     </main>
 
     <footer>
-        <p>すべての処理はあなたのブラウザ内で完結します。ファイルが外部に送信されることはありません。</p>
+        <p>ファイルは外部に送信されません。全ての処理はブラウザ内で完結します。</p>
     </footer>
+
+    <div id="lightbox-modal" class="lightbox-modal hidden">
+        <span class="lightbox-close">&times;</span>
+        <span class="lightbox-nav prev">&#10094;</span>
+        <span class="lightbox-nav next">&#10095;</span>
+        <div class="lightbox-content">
+            <canvas id="lightbox-canvas"></canvas>
+            <div id="lightbox-caption"></div>
+        </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

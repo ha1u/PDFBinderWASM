@@ -1,6 +1,7 @@
 import './style.css';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+// pdf.jsのワーカーを設定します。Vite環境ではこのように動的importを使うのが一般的です。
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 
@@ -85,10 +86,38 @@ const renderFileList = () => {
   updateButtonsState();
 };
 
-const generateThumbnail = async (file: UploadedFile) => { /* ... (変更なし) ... */ };
-const updateButtonsState = () => { /* ... (変更なし) ... */ };
-const updateStatus = (message: string, type: 'processing' | 'success' | 'error') => { /* ... (変更なし) ... */ };
-const clearStatus = () => { /* ... (変更なし) ... */ };
+const generateThumbnail = async (file: UploadedFile) => {
+  const canvas = document.getElementById(`thumb-${file.id}`) as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const context = canvas.getContext('2d')!;
+
+  try {
+    const bufferCopy = file.arrayBuffer.slice(0);
+    const pdf = await pdfjsLib.getDocument({ data: bufferCopy }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const scale = canvas.width / viewport.width;
+    const scaledViewport = page.getViewport({ scale });
+    await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+  } catch (err) {
+    console.error('サムネイルの生成に失敗しました:', file.name, err);
+    context.fillStyle = '#ccc';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+const updateButtonsState = () => {
+    mergeButton.disabled = uploadedFiles.length < 2;
+    clearButton.disabled = uploadedFiles.length === 0;
+};
+const updateStatus = (message: string, type: 'processing' | 'success' | 'error') => {
+  statusContainer.className = `status-container ${type}`;
+  statusContainer.textContent = message;
+};
+const clearStatus = () => {
+  statusContainer.className = 'status-container hidden';
+  statusContainer.textContent = '';
+};
 
 // --- Lightbox (拡大表示) 機能 ---
 const showLightbox = (index: number) => {
@@ -129,7 +158,9 @@ const showPrevImage = () => showLightbox((currentLightboxIndex - 1 + uploadedFil
 // --- イベントリスナー ---
 uploadContainer.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', (e) => handleFiles((e.target as HTMLInputElement).files!));
-// ... (ドラッグイベントリスナーは変更なし) ...
+uploadContainer.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.add('dragover'); });
+uploadContainer.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); });
+uploadContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); handleFiles(e.dataTransfer!.files); });
 
 fileListEl.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
@@ -137,29 +168,66 @@ fileListEl.addEventListener('click', (e) => {
   if (!indexAttr) return;
   const index = parseInt(indexAttr, 10);
   
-  if (target.classList.contains('remove-btn')) { /* ... (変更なし) ... */ }
-  else if (target.classList.contains('arrow-btn')) { /* ... (変更なし) ... */ }
-  else if (target.classList.contains('thumbnail-canvas')) { // サムネイルクリック
+  if (target.classList.contains('remove-btn')) {
+    uploadedFiles.splice(index, 1);
+    renderFileList();
+  } else if (target.classList.contains('arrow-btn')) {
+    const direction = target.classList.contains('up-btn') ? -1 : 1;
+    const newIndex = index + direction;
+    if (newIndex >= 0 && newIndex < uploadedFiles.length) {
+      [uploadedFiles[index], uploadedFiles[newIndex]] = [uploadedFiles[newIndex], uploadedFiles[index]];
+      renderFileList();
+    }
+  } else if (target.classList.contains('thumbnail-canvas')) {
       showLightbox(index);
   }
 });
 
-// ... (他のイベントリスナーは変更なし) ...
-
-// Lightboxイベントリスナー
-lightboxClose.addEventListener('click', hideLightbox);
-lightboxModal.addEventListener('click', (e) => { if (e.target === lightboxModal) hideLightbox(); });
-lightboxNext.addEventListener('click', showNextImage);
-lightboxPrev.addEventListener('click', showPrevImage);
-document.addEventListener('keydown', (e) => {
-    if (lightboxModal.classList.contains('hidden')) return;
-    if (e.key === 'Escape') hideLightbox();
-    if (e.key === 'ArrowRight') showNextImage();
-    if (e.key === 'ArrowLeft') showPrevImage();
+fileListEl.addEventListener('dragstart', (e) => {
+    setTimeout(() => (e.target as HTMLElement).classList.add('dragging'), 0);
+});
+fileListEl.addEventListener('dragend', (e) => {
+    const target = e.target as HTMLElement;
+    if(target.classList.contains('dragging')) {
+      target.classList.remove('dragging');
+    }
+});
+fileListEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const afterElement = getDragAfterElement(fileListEl, e.clientY);
+    const currentDragged = document.querySelector('.dragging');
+    if (!currentDragged) return;
+    if (afterElement == null) {
+        fileListEl.appendChild(currentDragged);
+    } else {
+        fileListEl.insertBefore(currentDragged, afterElement);
+    }
+});
+fileListEl.addEventListener('drop', () => {
+    const newOrder = Array.from(fileListEl.querySelectorAll('.file-list-item')).map(item => uploadedFiles.find(f => f.id === (item as HTMLElement).dataset.id)!);
+    uploadedFiles = newOrder;
+    renderFileList();
 });
 
+function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | null {
+    const draggableElements = [...container.querySelectorAll<HTMLElement>('.file-list-item:not(.dragging)')];
+    const closest = draggableElements.reduce<{ offset: number; element: HTMLElement | null }>(
+        (acc, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > acc.offset) {
+                return { offset, element: child };
+            } else {
+                return acc;
+            }
+        },
+        { offset: Number.NEGATIVE_INFINITY, element: null }
+    );
+    return closest.element;
+}
 
-// ★★★ ファイル名生成ロジックを修正 ★★★
+clearButton.addEventListener('click', () => { uploadedFiles = []; fileInput.value = ''; renderFileList(); clearStatus(); });
+
 mergeButton.addEventListener('click', async () => {
   if (uploadedFiles.length < 2) return;
   updateStatus("結合処理中...", "processing");
@@ -175,7 +243,6 @@ mergeButton.addEventListener('click', async () => {
     }
     const mergedPdfBytes = await mergedPdf.save();
     
-    // ランダムな10文字の英数字を生成
     const randomString = Math.random().toString(36).substring(2, 12);
     downloadPDF(mergedPdfBytes, `merged_${randomString}.pdf`);
 
@@ -198,6 +265,18 @@ const downloadPDF = (bytes: Uint8Array, filename: string) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 };
+
+// Lightboxイベントリスナー
+lightboxClose.addEventListener('click', hideLightbox);
+lightboxModal.addEventListener('click', (e) => { if (e.target === lightboxModal) hideLightbox(); });
+lightboxNext.addEventListener('click', showNextImage);
+lightboxPrev.addEventListener('click', showPrevImage);
+document.addEventListener('keydown', (e) => {
+    if (lightboxModal.classList.contains('hidden')) return;
+    if (e.key === 'Escape') hideLightbox();
+    if (e.key === 'ArrowRight') showNextImage();
+    if (e.key === 'ArrowLeft') showPrevImage();
+});
 
 // 初期状態
 updateButtonsState();

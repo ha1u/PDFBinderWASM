@@ -1,8 +1,8 @@
 import './style.css';
-import { PDFDocument } from 'pdf-lib';
+// ★★★ 修正点1: degrees をインポートリストに追加 ★★★
+import { PDFDocument, degrees } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// pdf.jsのワーカーを設定します。Vite環境ではこのように動的importを使うのが一般的です。
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 
@@ -12,7 +12,7 @@ interface UploadedFile {
   name: string;
   size: number;
   arrayBuffer: ArrayBuffer;
-  rotation: 0 | 90 | 180 | 270; // ★★★ 回転角度を保持するプロパティを追加 ★★★
+  rotation: 0 | 90 | 180 | 270;
 }
 
 // --- DOM要素の取得 ---
@@ -47,7 +47,7 @@ const handleFiles = (files: FileList) => {
       if (arrayBuffer) {
         uploadedFiles.push({
           id: crypto.randomUUID(), name: file.name, size: file.size, arrayBuffer,
-          rotation: 0, // ★★★ rotationを0で初期化 ★★★
+          rotation: 0,
         });
         renderFileList();
       }
@@ -67,7 +67,6 @@ const renderFileList = () => {
     li.draggable = true;
     const sizeInKB = (file.size / 1024).toFixed(1);
     
-    // ★★★ HTML構造に回転UIを追加 ★★★
     li.innerHTML = `
       <canvas id="thumb-${file.id}" class="thumbnail-canvas" data-index="${index}"></canvas>
       <div class="file-info">
@@ -76,14 +75,14 @@ const renderFileList = () => {
       </div>
       <div class="item-actions">
         <div class="rotation-control">
-          <button class="rotate-btn" data-index="${index}" title="90度回転">↺</button>
+          <button class="rotate-btn" title="90度回転">↺</button>
           <span class="rotation-display">${file.rotation}°</span>
         </div>
         <div class="order-controls">
-          <button class="arrow-btn up-btn" data-index="${index}" title="上へ">↑</button>
-          <button class="arrow-btn down-btn" data-index="${index}" title="下へ">↓</button>
+          <button class="arrow-btn up-btn" title="上へ">↑</button>
+          <button class="arrow-btn down-btn" title="下へ">↓</button>
         </div>
-        <button class="remove-btn" data-index="${index}" title="削除">&times;</button>
+        <button class="remove-btn" title="削除">&times;</button>
       </div>
     `;
     fileListEl.appendChild(li);
@@ -135,11 +134,9 @@ const showLightbox = (index: number) => {
     lightboxModal.classList.remove('hidden');
     renderLargePreview(uploadedFiles[index]);
 };
-
 const hideLightbox = () => {
     lightboxModal.classList.add('hidden');
 };
-
 const renderLargePreview = async (file: UploadedFile) => {
     lightboxCaption.textContent = '読み込み中...';
     const context = lightboxCanvas.getContext('2d')!;
@@ -148,8 +145,7 @@ const renderLargePreview = async (file: UploadedFile) => {
         const bufferCopy = file.arrayBuffer.slice(0);
         const pdf = await pdfjsLib.getDocument({ data: bufferCopy }).promise;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 }); // 高解像度で表示
-
+        const viewport = page.getViewport({ scale: 1.5 });
         lightboxCanvas.height = viewport.height;
         lightboxCanvas.width = viewport.width;
         await page.render({ canvasContext: context, viewport }).promise;
@@ -159,10 +155,8 @@ const renderLargePreview = async (file: UploadedFile) => {
         lightboxCaption.textContent = "プレビューの表示に失敗しました";
     }
 };
-
 const showNextImage = () => showLightbox((currentLightboxIndex + 1) % uploadedFiles.length);
 const showPrevImage = () => showLightbox((currentLightboxIndex - 1 + uploadedFiles.length) % uploadedFiles.length);
-
 
 // --- イベントリスナー ---
 fileInput.addEventListener('change', (e) => handleFiles((e.target as HTMLInputElement).files!));
@@ -170,28 +164,33 @@ uploadContainer.addEventListener('dragover', (e) => { e.preventDefault(); e.stop
 uploadContainer.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); });
 uploadContainer.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); uploadContainer.classList.remove('dragover'); handleFiles(e.dataTransfer!.files); });
 
+// ★★★ 修正点2: イベントリスナーのロジックをより安全な形に修正 ★★★
 fileListEl.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement;
-  const indexAttr = target.closest('.file-list-item')?.dataset.index; // 親要素からindexを取得
+  const clickedElement = e.target as HTMLElement;
+  const listItem = clickedElement.closest('.file-list-item');
+
+  if (!(listItem instanceof HTMLElement)) return; // クリックされた要素の親に .file-list-item がなければ何もしない
+
+  const indexAttr = listItem.dataset.index;
   if (!indexAttr) return;
   const index = parseInt(indexAttr, 10);
   
-  if (target.classList.contains('remove-btn')) {
+  if (clickedElement.classList.contains('remove-btn')) {
     uploadedFiles.splice(index, 1);
     renderFileList();
-  } else if (target.classList.contains('arrow-btn')) {
-    const direction = target.classList.contains('up-btn') ? -1 : 1;
+  } else if (clickedElement.classList.contains('arrow-btn')) {
+    const direction = clickedElement.classList.contains('up-btn') ? -1 : 1;
     const newIndex = index + direction;
     if (newIndex >= 0 && newIndex < uploadedFiles.length) {
       [uploadedFiles[index], uploadedFiles[newIndex]] = [uploadedFiles[newIndex], uploadedFiles[index]];
       renderFileList();
     }
-  } else if (target.classList.contains('thumbnail-canvas')) {
-      showLightbox(index);
-  } else if (target.classList.contains('rotate-btn')) { // ★★★ 回転ボタンの処理を追加 ★★★
+  } else if (clickedElement.classList.contains('thumbnail-canvas')) {
+    showLightbox(index);
+  } else if (clickedElement.classList.contains('rotate-btn')) {
     const file = uploadedFiles[index];
     file.rotation = ((file.rotation + 90) % 360) as 0 | 90 | 180 | 270;
-    renderFileList(); // UIを更新
+    renderFileList();
   }
 });
 
@@ -200,7 +199,7 @@ fileListEl.addEventListener('dragstart', (e) => {
 });
 fileListEl.addEventListener('dragend', (e) => {
     const target = e.target as HTMLElement;
-    if(target.classList.contains('dragging')) {
+    if (target.classList.contains('dragging')) {
       target.classList.remove('dragging');
     }
 });
@@ -238,10 +237,10 @@ function getDragAfterElement(container: HTMLElement, y: number): HTMLElement | n
     return closest.element;
 }
 
-clearButton.addEventListener('click', () => { 
+clearButton.addEventListener('click', () => {
     uploadedFiles = [];
     fileInput.value = '';
-    filenameInput.value = ''; // ファイル名入力欄もクリア
+    filenameInput.value = '';
     renderFileList();
     clearStatus();
 });
@@ -259,7 +258,6 @@ mergeButton.addEventListener('click', async () => {
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
 
       copiedPages.forEach(page => {
-        // 保存された回転角度を追加で適用
         const currentRotation = page.getRotation().angle;
         page.setRotation(degrees(currentRotation + file.rotation));
         mergedPdf.addPage(page);
@@ -269,7 +267,6 @@ mergeButton.addEventListener('click', async () => {
     
     let finalFilename: string;
     const userInputFilename = filenameInput.value.trim();
-
     if (userInputFilename) {
         const sanitizedFilename = userInputFilename.replace(/[<>:"/\\|?*]/g, '_');
         finalFilename = sanitizedFilename.endsWith('.pdf') ? sanitizedFilename : `${sanitizedFilename}.pdf`;
